@@ -47,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (priorityComparison != 0) return priorityComparison;
       return a.dueDate!.compareTo(b.dueDate!);
     });
+    setState(() {}); // Trigger rebuild after sorting
   }
 
   @override
@@ -58,93 +59,92 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Colors.pink[50],
       body: todos.isEmpty
           ? Center(
-        child: Text(
-          'No todos yet. Add some tasks!',
-          style: TextStyle(fontSize: 18.0),
-        ),
-      )
-          : ListView.builder(
-        itemCount: todos.length,
-        itemBuilder: (context, index) {
-          final todo = todos[index];
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-            child: Card(
-              elevation: 4.0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.0),
+              child: Text(
+                'No todos yet. Add some tasks!',
+                style: TextStyle(fontSize: 18.0),
               ),
-              color: Colors.teal[50],
-
-              child: Dismissible(
-                key: Key(todo.title),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  color: Colors.red,
-                  alignment: Alignment.centerRight,
-                  padding: EdgeInsets.symmetric(horizontal: 20.0),
-                  child: const Icon(Icons.delete, color: Colors.white),
-                ),
-                onDismissed: (direction) {
-                  setState(() {
-                    todos.removeAt(index); // Remove item from the list
-                    saveTodos(); // Save updated list to SharedPreferences
-                  });
-                },
-                child: ListTile(
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16.0),
-                  title: Text(
-                    todo.title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18.0,
-                      color: Colors.black87,
+            )
+          : ListView.builder(
+              itemCount: todos.length,
+              itemBuilder: (context, index) {
+                final todo = todos[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                  child: Card(
+                    elevation: 4.0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.0),
                     ),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (todo.desc.isNotEmpty) Text(todo.desc),
-                      if (todo.dueDate != null)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                          child: Text(
-                            'Due Date: ${DateFormat('yyyy-MM-dd').format(todo.dueDate!)}',
-                            style: TextStyle(
-                              fontStyle: FontStyle.italic,
-                              color: Colors.grey[700],
-                            ),
+                    color: Colors.teal[50],
+                    child: Dismissible(
+                      key: Key(todo.title),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        color: Colors.red,
+                        alignment: Alignment.centerRight,
+                        padding: EdgeInsets.symmetric(horizontal: 20.0),
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      onDismissed: (direction) {
+                        setState(() {
+                          todos.removeAt(index); // Remove item from the list
+                          saveTodos(); // Save updated list to SharedPreferences
+                        });
+                      },
+                      child: ListTile(
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16.0),
+                        title: Text(
+                          todo.title,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18.0,
+                            color: Colors.black87,
                           ),
                         ),
-                      Text(
-                        'Priority: ${todo.priority}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          color: _priorityColor(todo.priority),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (todo.desc.isNotEmpty) Text(todo.desc),
+                            if (todo.dueDate != null)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                child: Text(
+                                  'Due Date: ${DateFormat('yyyy-MM-dd').format(todo.dueDate!)}',
+                                  style: TextStyle(
+                                    fontStyle: FontStyle.italic,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                              ),
+                            Text(
+                              'Priority: ${todo.priority}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: _priorityColor(todo.priority),
+                              ),
+                            ),
+                          ],
+                        ),
+                        trailing: Checkbox(
+                          value: todo.done,
+                          onChanged: (value) {
+                            setState(() {
+                              todo.done = value!;
+                              saveTodos();
+                            });
+                          },
+                        ),
+                        onTap: () => _editTodoDialog(context, todo, index),
+                        leading: IconButton(
+                          icon: Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () => _editTodoDialog(context, todo, index),
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                  trailing: Checkbox(
-                    value: todo.done,
-                    onChanged: (value) {
-                      setState(() {
-                        todo.done = value!;
-                        saveTodos();
-                      });
-                    },
-                  ),
-                  onTap: () => _editTodoDialog(context, todo, index),
-                  leading: IconButton(
-                    icon: Icon(Icons.edit, color: Colors.blue),
-                    onPressed: () => _editTodoDialog(context, todo, index),
-                  ),
-                ),
-              ),
+                );
+              },
             ),
-          );
-        },
-      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _addTodoDialog(context),
         tooltip: 'Add Tasks',
@@ -170,6 +170,7 @@ class _HomeScreenState extends State<HomeScreen> {
     titleController.text = '';
     descController.text = '';
     _selectedPriority = 1;
+    _selectedDate = null; // Reset selected date
 
     await showDialog(
       context: context,
@@ -227,9 +228,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       items: List.generate(5, (index) => index + 1)
                           .map((priority) => DropdownMenuItem(
-                        value: priority,
-                        child: Text('Priority $priority'),
-                      ))
+                                value: priority,
+                                child: Text('Priority $priority'),
+                              ))
                           .toList(),
                       onChanged: (value) {
                         setState(() {
@@ -251,7 +252,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.white, backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.blue,
               ),
               child: Text('Add'),
               onPressed: () async {
@@ -265,7 +267,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   todos.sort((a, b) {
                     int priorityComparison = b.priority.compareTo(a.priority);
                     if (priorityComparison != 0) return priorityComparison;
-                    return (a.dueDate ?? DateTime(0)).compareTo(b.dueDate ?? DateTime(0));
+                    return (a.dueDate ?? DateTime(0))
+                        .compareTo(b.dueDate ?? DateTime(0));
                   });
                 });
 
@@ -342,9 +345,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       items: List.generate(5, (index) => index + 1)
                           .map((priority) => DropdownMenuItem(
-                        value: priority,
-                        child: Text('Priority $priority'),
-                      ))
+                                value: priority,
+                                child: Text('Priority $priority'),
+                              ))
                           .toList(),
                       onChanged: (value) {
                         setState(() {
@@ -366,7 +369,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.white, backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.blue,
               ),
               child: Text('Save'),
               onPressed: () async {
@@ -376,6 +380,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   todos[index].desc = descController.text;
                   todos[index].dueDate = _selectedDate;
                   todos[index].priority = _selectedPriority;
+                  todos.sort((a, b) {
+                    int priorityComparison = b.priority.compareTo(a.priority);
+                    if (priorityComparison != 0) return priorityComparison;
+                    return (a.dueDate ?? DateTime(0))
+                        .compareTo(b.dueDate ?? DateTime(0));
+                  });
                 });
 
                 await saveTodos();
